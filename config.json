@@ -629,5 +629,5 @@
     "ENSOUSDT",
     "YBUSDT"
   ],
-  "threshold_percent": 2.5
+  "threshold_percent": 3
 }

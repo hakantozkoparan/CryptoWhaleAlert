@@ -72,7 +72,48 @@ def main():
                         print(msg)
                         send_telegram_message(msg)
 
-        time.sleep(10)
+        price_history = {symbol: [] for symbol in COINS}
+        last_alert = {symbol: {'price': None, 'direction': None} for symbol in COINS}
+        print("Başlangıç fiyatları alınıyor...")
+        while True:
+            time.sleep(10)  # 10 saniyede bir fiyat al
+            new_prices = get_all_prices()
+            for symbol in COINS:
+                if symbol not in new_prices:
+                    continue
+                new_price = new_prices[symbol]
+                try:
+                    new_price_float = float(new_price)
+                except Exception:
+                    continue
+                # Fiyat geçmişini güncelle
+                price_history[symbol].append(new_price_float)
+                if len(price_history[symbol]) > 5:
+                    price_history[symbol].pop(0)
+                # Son 5 dakikadaki değişimi kontrol et
+                if len(price_history[symbol]) == 5:
+                    old_price_float = price_history[symbol][0]
+                    change = ((new_price_float - old_price_float) / old_price_float) * 100 if old_price_float != 0 else 0
+                    direction = 'up' if change > 0 else 'down'
+                    # Sadece yeni eşiği geçtiğinde veya yön değiştiğinde bildirim gönder
+                    if abs(change) >= THRESHOLD:
+                        last_alert_price = last_alert[symbol]['price']
+                        last_alert_direction = last_alert[symbol]['direction']
+                        # Eğer ilk kez bildiriliyorsa veya yön değiştiyse veya fiyat yeni bir eşiğe ulaştıysa
+                        if (last_alert_price is None or last_alert_direction != direction or
+                            (direction == 'up' and new_price_float > last_alert_price) or
+                            (direction == 'down' and new_price_float < last_alert_price)):
+                            utc_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+                            coin_name = symbol.replace('USDT', '/USDT')
+                            price = trim_price(new_price)
+                            if direction == 'up':
+                                mesaj = f"🚨 #{coin_name} Last Price: {price}\n🟢⬆️ Last 5 Minute: %{abs(change):.2f}\n⏰Time: {utc_time}"
+                            else:
+                                mesaj = f"🚨 #{coin_name} Last Price: {price}\n🔴⬇️ Last 5 Minute: %{abs(change):.2f}\n⏰Time: {utc_time}"
+                            print(mesaj)
+                            send_telegram_message(mesaj)
+                            last_alert[symbol]['price'] = new_price_float
+                            last_alert[symbol]['direction'] = direction
 
 if __name__ == "__main__":
     main()
